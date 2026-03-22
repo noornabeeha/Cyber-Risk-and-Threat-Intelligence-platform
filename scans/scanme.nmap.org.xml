@@ -1,0 +1,64 @@
+<?xml version="1.0" ?>
+<report>
+  <target>scanme.nmap.org</target>
+  <address>45.33.32.156</address>
+  <addrtype>ipv4</addrtype>
+  <hostname>scanme.nmap.org</hostname>
+  <status>up</status>
+  <uptime>
+    <days>47</days>
+    <last_boot>Tue Feb  3 01:35:11 2026</last_boot>
+    <unpatched_signal>False</unpatched_signal>
+  </uptime>
+  <os_guess>IPFire 2.27 (Linux 5.15 - 6.1)</os_guess>
+  <ports>
+    <port>
+      <portid>22</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>ssh</service>
+      <tunnel/>
+      <product>OpenSSH</product>
+      <version>6.6.1p1 Ubuntu 2ubuntu2.13</version>
+      <conf>10</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+    <port>
+      <portid>80</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>http</service>
+      <tunnel/>
+      <product>Apache httpd</product>
+      <version>2.4.7</version>
+      <conf>10</conf>
+      <risk>medium</risk>
+      <risk_reason>Unencrypted web traffic</risk_reason>
+    </port>
+    <port>
+      <portid>9929</portid>
+      <protocol>tcp</protocol>
+      <state>filtered</state>
+      <service>nping-echo</service>
+      <tunnel/>
+      <product/>
+      <version/>
+      <conf>3</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+    <port>
+      <portid>31337</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>tcpwrapped</service>
+      <tunnel/>
+      <product/>
+      <version/>
+      <conf>8</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+  </ports>
+</report>
