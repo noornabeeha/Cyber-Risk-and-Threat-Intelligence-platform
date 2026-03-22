@@ -44,9 +44,6 @@ def run_vt_scan(target):
     for link in set(data["data"]["attributes"]["outgoing_links"][:10]):
        if(isMalicious(link)):
           newData["malicious_outlinks"] += 1
-    print(newData)
+    return newData
 
-
-run_vt_scan("zero.webappsecurity.com")
-
-# run_vt_scan("target")
+print(run_vt_scan("scanme.nmap.org"))
