@@ -1,0 +1,100 @@
+<?xml version="1.0" ?>
+<report>
+  <target> scanme.nmap.org</target>
+  <address>50.116.1.184</address>
+  <addrtype>ipv4</addrtype>
+  <hostname> scanme.nmap.org</hostname>
+  <status>up</status>
+  <uptime>
+    <days>23</days>
+    <last_boot>Fri Feb 27 06:15:47 2026</last_boot>
+    <unpatched_signal>False</unpatched_signal>
+  </uptime>
+  <os_guess>IPFire 2.27 (Linux 5.15 - 6.1)</os_guess>
+  <ports>
+    <port>
+      <portid>22</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>ssh</service>
+      <tunnel/>
+      <product>OpenSSH</product>
+      <version>7.4</version>
+      <conf>10</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+    <port>
+      <portid>25</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>smtp</service>
+      <tunnel/>
+      <product>Postfix smtpd</product>
+      <version/>
+      <conf>10</conf>
+      <risk>medium</risk>
+      <risk_reason>May relay spam / no auth</risk_reason>
+    </port>
+    <port>
+      <portid>70</portid>
+      <protocol>tcp</protocol>
+      <state>closed</state>
+      <service>gopher</service>
+      <tunnel/>
+      <product/>
+      <version/>
+      <conf>3</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+    <port>
+      <portid>80</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>http</service>
+      <tunnel/>
+      <product>Apache httpd</product>
+      <version>2.4.6</version>
+      <conf>10</conf>
+      <risk>medium</risk>
+      <risk_reason>Unencrypted web traffic</risk_reason>
+    </port>
+    <port>
+      <portid>113</portid>
+      <protocol>tcp</protocol>
+      <state>closed</state>
+      <service>ident</service>
+      <tunnel/>
+      <product/>
+      <version/>
+      <conf>3</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+    <port>
+      <portid>443</portid>
+      <protocol>tcp</protocol>
+      <state>open</state>
+      <service>http</service>
+      <tunnel>ssl</tunnel>
+      <product>Apache httpd</product>
+      <version>2.4.6</version>
+      <conf>10</conf>
+      <risk>medium</risk>
+      <risk_reason>Unencrypted web traffic</risk_reason>
+    </port>
+    <port>
+      <portid>31337</portid>
+      <protocol>tcp</protocol>
+      <state>closed</state>
+      <service>Elite</service>
+      <tunnel/>
+      <product/>
+      <version/>
+      <conf>3</conf>
+      <risk/>
+      <risk_reason/>
+    </port>
+  </ports>
+</report>
