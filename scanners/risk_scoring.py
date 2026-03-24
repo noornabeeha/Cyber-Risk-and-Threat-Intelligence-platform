@@ -201,5 +201,3 @@ def getScore(target):
     report = calculate_risk(nmap_report, vt_data)
     return report.__dict__ #converting the report object into a dictionary.
 
-if __name__ == "__main__":
-    print(getScore("scanme.nmap.org"))
