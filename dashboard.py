@@ -190,11 +190,6 @@ scan_button    = st.sidebar.button("Run Full Scan",  use_container_width=True, t
 refresh_button = st.sidebar.button("Refresh Scan",   use_container_width=True)
 st.sidebar.divider()
 
-#Scan history
-st.sidebar.title("Compare Scan History")
-hist_button    = st.sidebar.button("Compare",  use_container_width=True, type="primary")
-st.sidebar.divider()
-
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 for _k in ["reports", "scan_time", "last_refreshed"]:
