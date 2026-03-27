@@ -24,8 +24,21 @@ DANGEROUS_SERVICES = {
 }
 
 DANGEROUS_PORT_COMBOS = {
-    ("http", "8080"): {"risk": "medium", "reason": "HTTP on alt port — often public-facing"},
-    ("http", "8000"): {"risk": "medium", "reason": "HTTP on dev port — may be unintentionally exposed"},
+    ("http",  "8080"): {"risk": "medium", "reason": "HTTP on alt port — often public-facing"},
+    ("http",  "8000"): {"risk": "medium", "reason": "HTTP on dev port — may be unintentionally exposed"},
+    ("ftp",   "21"):   {"risk": "high",   "reason": "FTP transmits credentials in plaintext"},
+    ("telnet","23"):   {"risk": "high",   "reason": "Telnet is fully unencrypted"},
+    ("smb",   "445"):  {"risk": "high",   "reason": "SMB — common ransomware/lateral movement vector"},
+    ("smb",   "139"):  {"risk": "high",   "reason": "NetBIOS/SMB — legacy, frequently exploited"},
+    ("rdp",   "3389"): {"risk": "high",   "reason": "RDP exposed — brute-force and CVE target"},
+    ("vnc",   "5900"): {"risk": "high",   "reason": "VNC often has weak/no authentication"},
+    ("redis", "6379"): {"risk": "high",   "reason": "Redis with no auth — full data exposure"},
+    ("mysql", "3306"): {"risk": "high",   "reason": "Database exposed to internet"},
+    ("mssql", "1433"): {"risk": "high",   "reason": "MSSQL exposed — credential brute-force risk"},
+    ("postgresql","5432"): {"risk": "high","reason": "PostgreSQL exposed to internet"},
+    ("mongodb","27017"):   {"risk": "high","reason": "MongoDB — historically misconfigured with no auth"},
+    ("msrpc", "135"):  {"risk": "medium", "reason": "RPC endpoint mapper — Windows attack surface"},
+    ("netbios-ns","137"): {"risk": "medium","reason": "NetBIOS name service — info disclosure risk"},
 }
 
 
