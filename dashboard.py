@@ -78,6 +78,13 @@ except Exception as _import_err:
     RISK_SCORING_AVAILABLE = False
     _import_err_msg = str(_import_err)
 
+# ─── DATABASE (history persistence) ──────────────────────────────────────────
+try:
+    from database import save_scan, load_history, load_scan_by_id, delete_scan
+    DB_AVAILABLE = True
+except Exception as _db_err:
+    DB_AVAILABLE = False
+
 # ─── PAGE CONFIG (must be first Streamlit call) ───────────────────────────────
 st.set_page_config(
     page_title="CyberScan Pro",
@@ -433,6 +440,13 @@ if scan_button or refresh_button:
             st.session_state.scan_time      = time.strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.last_refreshed = datetime.now().strftime("%d %b %Y  %H:%M:%S")
             status.success(f"Scan complete -- {len(collected)} target(s) processed.")
+            # ── Auto-save to history DB ───────────────────────────────────
+            if DB_AVAILABLE:
+                try:
+                    _save_df = reports_to_df(collected)
+                    save_scan(_save_df, targets)
+                except Exception as _db_save_err:
+                    st.warning(f"History save failed: {_db_save_err}")
         else:
             status.error("No results returned. Check connectivity and credentials.")
 
@@ -532,12 +546,13 @@ if is_sample:
 st.divider()
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Charts",
     "Scan Data",
     "Threat Intel",
     "Export",
     "About KPIs",
+    "History",
 ])
 
 
@@ -1152,3 +1167,211 @@ If any host is high, take action immediately.
             "streamlit run dashboard.py",
             language="bash",
         )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 6 -- HISTORY
+# ══════════════════════════════════════════════════════════════════════════════
+with tab6:
+    st.subheader("Scan History")
+
+    # ── Database availability guard ────────────────────────────────────────────
+    if not DB_AVAILABLE:
+        st.error(
+            "History database is unavailable. "
+            "Make sure `database.py` exists in the project root.\n\n"
+            f"Error detail: {_db_err}"
+        )
+    else:
+        history_df = load_history()
+
+        if history_df.empty:
+            st.info(
+                "No scans saved yet. "
+                "Run a live scan (click **Run Full Scan** in the sidebar) "
+                "to start building your history."
+            )
+        else:
+            # ── KPI row ───────────────────────────────────────────────────────
+            st.markdown(
+                '<div class="section-header">All-Time Statistics</div>',
+                unsafe_allow_html=True,
+            )
+            hk1, hk2, hk3, hk4, hk5 = st.columns(5)
+            _alltime_max  = float(history_df["max_risk_score"].max())
+            _alltime_avg  = float(history_df["avg_risk_score"].mean())
+            _total_crits  = int(history_df["critical_count"].sum())
+            _total_highs  = int(history_df["high_count"].sum())
+            _first_scan   = history_df["scan_time"].iloc[-1]   # oldest = last row (desc order)
+            for _col, _lbl, _val, _sub, _var in [
+                (hk1, "Total Scans",     len(history_df),             "runs saved",            ""),
+                (hk2, "All-Time Peak",   f"{_alltime_max:.0f}",       "max composite score",   _variant("CRITICAL") if _alltime_max >= 80 else _variant("HIGH") if _alltime_max >= 60 else ""),
+                (hk3, "Avg Risk (all)",  f"{_alltime_avg:.1f}",       "across all scan runs",  ""),
+                (hk4, "Total Criticals", _total_crits,                "critical findings ever","critical" if _total_crits else "safe"),
+                (hk5, "First Scan",      _first_scan[:10],            "date of earliest scan", ""),
+            ]:
+                with _col:
+                    st.markdown(kpi_card(_lbl, _val, _sub, _var), unsafe_allow_html=True)
+
+            st.divider()
+
+            # ── Trend charts ──────────────────────────────────────────────────
+            st.markdown('<div class="section-header">Risk Trend Over Time</div>',
+                        unsafe_allow_html=True)
+
+            # Reverse for chronological order in the chart
+            trend_df = history_df.iloc[::-1].reset_index(drop=True)
+
+            hc1, hc2 = st.columns(2)
+
+            # Trend line: avg and max risk scores
+            with hc1:
+                fig_trend = go.Figure()
+                fig_trend.add_trace(go.Scatter(
+                    x=trend_df["scan_time"], y=trend_df["avg_risk_score"],
+                    mode="lines+markers", name="Avg Risk",
+                    line=dict(color="#00d4ff", width=2),
+                    marker=dict(size=6),
+                ))
+                fig_trend.add_trace(go.Scatter(
+                    x=trend_df["scan_time"], y=trend_df["max_risk_score"],
+                    mode="lines+markers", name="Peak Risk",
+                    line=dict(color="#ff4444", width=2, dash="dot"),
+                    marker=dict(size=6),
+                ))
+                fig_trend.update_layout(
+                    title="Risk Score Over Time",
+                    height=320,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    xaxis=dict(gridcolor=GRID_COL, title="Scan Time"),
+                    yaxis=dict(gridcolor=GRID_COL, range=[0, 105], title="Score"),
+                    legend=dict(bgcolor=CHART_BG),
+                    title_font=dict(family="Share Tech Mono", size=13),
+                    margin=dict(t=50, b=20, l=20, r=20),
+                )
+                st.plotly_chart(fig_trend, use_container_width=True)
+
+            # Severity trend: critical + high counts stacked bar
+            with hc2:
+                fig_sev = go.Figure()
+                fig_sev.add_trace(go.Bar(
+                    x=trend_df["scan_time"], y=trend_df["critical_count"],
+                    name="Critical", marker_color="#ff4444",
+                ))
+                fig_sev.add_trace(go.Bar(
+                    x=trend_df["scan_time"], y=trend_df["high_count"],
+                    name="High", marker_color="#ff9900",
+                ))
+                fig_sev.update_layout(
+                    barmode="stack",
+                    title="Critical & High Findings per Scan",
+                    height=320,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    xaxis=dict(gridcolor=GRID_COL, title="Scan Time"),
+                    yaxis=dict(gridcolor=GRID_COL, title="Count"),
+                    legend=dict(bgcolor=CHART_BG),
+                    title_font=dict(family="Share Tech Mono", size=13),
+                    margin=dict(t=50, b=20, l=20, r=20),
+                )
+                st.plotly_chart(fig_sev, use_container_width=True)
+
+            st.divider()
+
+            # ── History table ─────────────────────────────────────────────────
+            st.markdown('<div class="section-header">Scan Log</div>',
+                        unsafe_allow_html=True)
+
+            disp_hist = history_df.rename(columns={
+                "id":              "Scan ID",
+                "scan_time":       "Date / Time",
+                "targets":         "Targets",
+                "total_hosts":     "Hosts",
+                "total_ports":     "Ports",
+                "critical_count":  "Critical",
+                "high_count":      "High",
+                "max_risk_score":  "Peak Score",
+                "avg_risk_score":  "Avg Score",
+            })
+            st.dataframe(
+                disp_hist,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.divider()
+
+            # ── Drill into a past scan ────────────────────────────────────────
+            st.markdown('<div class="section-header">Drill Into Past Scan</div>',
+                        unsafe_allow_html=True)
+
+            scan_options = {
+                f"Scan #{row['id']}  —  {row['scan_time']}  ({row['targets']})": row["id"]
+                for _, row in history_df.iterrows()
+            }
+            selected_label = st.selectbox(
+                "Select a past scan to inspect:",
+                options=list(scan_options.keys()),
+                key="hist_drill_select",
+            )
+            selected_id = scan_options[selected_label]
+
+            drill_df = load_scan_by_id(selected_id)
+
+            if drill_df.empty:
+                st.warning("No port-level data found for this scan.")
+            else:
+                st.caption(
+                    f"Scan #{selected_id} — {len(drill_df)} port entries "
+                    f"across {drill_df['target'].nunique() if 'target' in drill_df.columns else '?'} host(s)"
+                )
+
+                # Show simplified or full columns depending on mode
+                if view_mode == "Naive User":
+                    _show_cols = [c for c in
+                                  ["target", "portid", "service", "state",
+                                   "risk_tag", "severity", "composite_score"]
+                                  if c in drill_df.columns]
+                else:
+                    _show_cols = [c for c in
+                                  ["target", "portid", "service", "state", "risk_tag",
+                                   "port_score", "composite_score", "nmap_score",
+                                   "vt_score", "severity", "findings"]
+                                  if c in drill_df.columns]
+
+                st.dataframe(drill_df[_show_cols], use_container_width=True, hide_index=True)
+
+                st.download_button(
+                    label=f"⬇ Download Scan #{selected_id} as CSV",
+                    data=drill_df.to_csv(index=False).encode("utf-8"),
+                    file_name=f"cyberscan_history_{selected_id}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            st.divider()
+
+            # ── Delete a scan ─────────────────────────────────────────────────
+            st.markdown('<div class="section-header">Delete a Scan Record</div>',
+                        unsafe_allow_html=True)
+
+            del_col1, del_col2 = st.columns([3, 1])
+            with del_col1:
+                del_label = st.selectbox(
+                    "Choose a scan to delete:",
+                    options=list(scan_options.keys()),
+                    key="hist_del_select",
+                )
+                del_id = scan_options[del_label]
+            with del_col2:
+                st.write("")  # vertical spacing
+                st.write("")
+                if st.button(
+                    f"🗑 Delete Scan #{del_id}",
+                    type="primary",
+                    use_container_width=True,
+                    key="hist_del_btn",
+                ):
+                    delete_scan(del_id)
+                    st.success(f"Scan #{del_id} deleted successfully.")
+                    st.rerun()
