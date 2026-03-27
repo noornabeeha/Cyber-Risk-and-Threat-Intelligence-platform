@@ -568,308 +568,328 @@ with tab1:
         st.info("No data to chart -- run a scan first.")
 
     elif view_mode == "Naive User":
-        # ── 4 CHARTS ─────────────────────────────────────────────────────────
+        # ── 4 CHARTS: 2 columns × 2 rows ─────────────────────────────────────
         st.markdown("#### Simplified View")
 
-        # N0 -- Sunburst: host → severity → service (full width, first chart)
-        st.subheader("Risk Hierarchy")
-        _naive_port_df = df[(df["portid"] != "N/A") & (df["service"] != "N/A")].copy()
-        if not _naive_port_df.empty:
-            fig_sb_n = px.sunburst(
-                _naive_port_df,
-                path=["target", "severity", "service"],
-                values="composite_score",
-                color="severity",
-                color_discrete_map=SEV_COLORS,
-                title="Risk Hierarchy: Host → Severity → Service",
+        _CHART_H = 360  # uniform height keeps both rows equal
+
+        # ── ROW 1 ─────────────────────────────────────────────────────────────
+        n_r1c1, n_r1c2 = st.columns(2)
+
+        # [1][1] -- Open Ports per Target (bar)
+        with n_r1c1:
+            fig = px.bar(
+                target_summary, x="target", y="open_ports",
+                title="Open Ports per Target",
+                color="open_ports",
+                color_continuous_scale=["#00d68f", "#ffcc00", "#ff4444"],
+                text="open_ports",
+                labels={"target": "Target", "open_ports": "Open Ports"},
             )
-            fig_sb_n.update_layout(
-                height=480,
-                paper_bgcolor=CHART_BG,
+            fig.update_traces(textposition="outside")
+            fig.update_layout(
+                height=_CHART_H, showlegend=False,
+                paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
                 font_color=FONT_COLOR,
+                xaxis=dict(gridcolor=GRID_COL),
+                yaxis=dict(gridcolor=GRID_COL),
                 margin=dict(t=50, b=20, l=20, r=20),
                 title_font=dict(family="Share Tech Mono", size=13),
             )
-            st.plotly_chart(fig_sb_n, use_container_width=True)
-            st.caption("Click a segment to zoom in  |  Click the centre to zoom out")
+            st.plotly_chart(fig, use_container_width=True)
 
-        c1, c2 = st.columns(2)
-
-        # N1 -- Risk gauge per target
-        with c1:
-            st.markdown("**Risk Score per Target**")
-            for _, row in target_summary.iterrows():
-                st.plotly_chart(
-                    make_gauge(int(row["composite_score"]), row["target"], row["severity"]),
-                    use_container_width=True,
-                )
-
-        # N2 -- Severity donut
-        with c2:
+        # [1][2] -- Severity Distribution (pie / donut)
+        with n_r1c2:
             sev_c = target_summary["severity"].value_counts().reset_index()
             sev_c.columns = ["Severity", "Count"]
-            fig = px.pie(sev_c, names="Severity", values="Count",
-                         title="Severity Distribution",
-                         color="Severity", color_discrete_map=SEV_COLORS, hole=0.55)
+            fig = px.pie(
+                sev_c, names="Severity", values="Count",
+                title="Severity Distribution",
+                color="Severity", color_discrete_map=SEV_COLORS, hole=0.55,
+            )
             fig.update_traces(textinfo="percent+label")
-            fig.update_layout(height=380, paper_bgcolor=CHART_BG,
-                               font_color=FONT_COLOR, legend=dict(bgcolor=CHART_BG),
-                               title_font=dict(family="Share Tech Mono", size=13))
+            fig.update_layout(
+                height=_CHART_H,
+                paper_bgcolor=CHART_BG,
+                font_color=FONT_COLOR,
+                legend=dict(bgcolor=CHART_BG),
+                margin=dict(t=50, b=20, l=20, r=20),
+                title_font=dict(family="Share Tech Mono", size=13),
+            )
             st.plotly_chart(fig, use_container_width=True)
 
-        c3, c4 = st.columns(2)
+        # ── ROW 2 ─────────────────────────────────────────────────────────────
+        n_r2c1, n_r2c2 = st.columns(2)
 
-        # N3 -- Open ports per target
-        with c3:
-            fig = px.bar(target_summary, x="target", y="open_ports",
-                         title="Open Ports per Target",
-                         color="open_ports",
-                         color_continuous_scale=["#00d68f", "#ffcc00", "#ff4444"],
-                         text="open_ports",
-                         labels={"target": "Target", "open_ports": "Open Ports"})
-            fig.update_traces(textposition="outside")
-            fig.update_layout(height=380, showlegend=False,
-                               paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                               font_color=FONT_COLOR,
-                               xaxis=dict(gridcolor=GRID_COL),
-                               yaxis=dict(gridcolor=GRID_COL),
-                               title_font=dict(family="Share Tech Mono", size=13))
-            st.plotly_chart(fig, use_container_width=True)
-
-        # N4 -- Network risk vs VT scatter
-        with c4:
-            fig = px.scatter(target_summary, x="nmap_score", y="vt_score",
-                             size="composite_score", color="severity",
-                             color_discrete_map=SEV_COLORS,
-                             hover_name="target", text="target",
-                             title="Network Risk vs Threat Intelligence",
-                             labels={"nmap_score": "Network Risk (Nmap)",
-                                     "vt_score": "Threat Intel (VirusTotal)"})
+        # [2][1] -- Network Risk vs Threat Intelligence (scatter)
+        with n_r2c1:
+            fig = px.scatter(
+                target_summary, x="nmap_score", y="vt_score",
+                size="composite_score", color="severity",
+                color_discrete_map=SEV_COLORS,
+                hover_name="target", text="target",
+                title="Network Risk vs Threat Intelligence",
+                labels={
+                    "nmap_score": "Network Risk (Nmap)",
+                    "vt_score":   "Threat Intel (VirusTotal)",
+                },
+            )
             fig.update_traces(textposition="top center")
-            fig.update_layout(height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                               font_color=FONT_COLOR,
-                               xaxis=dict(gridcolor=GRID_COL, range=[-5, 105]),
-                               yaxis=dict(gridcolor=GRID_COL, range=[-5, 105]),
-                               legend=dict(bgcolor=CHART_BG),
-                               title_font=dict(family="Share Tech Mono", size=13))
+            fig.update_layout(
+                height=_CHART_H,
+                paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                font_color=FONT_COLOR,
+                xaxis=dict(gridcolor=GRID_COL, range=[-5, 105]),
+                yaxis=dict(gridcolor=GRID_COL, range=[-5, 105]),
+                legend=dict(bgcolor=CHART_BG),
+                margin=dict(t=50, b=20, l=20, r=20),
+                title_font=dict(family="Share Tech Mono", size=13),
+            )
             st.plotly_chart(fig, use_container_width=True)
+
+        # [2][2] -- Risk Hierarchy Sunburst
+        with n_r2c2:
+            _naive_port_df = df[(df["portid"] != "N/A") & (df["service"] != "N/A")].copy()
+            if not _naive_port_df.empty:
+                fig_sb_n = px.sunburst(
+                    _naive_port_df,
+                    path=["target", "severity", "service"],
+                    values="composite_score",
+                    color="severity",
+                    color_discrete_map=SEV_COLORS,
+                    title="Risk Hierarchy: Host → Severity → Service",
+                )
+                fig_sb_n.update_layout(
+                    height=_CHART_H,
+                    paper_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    margin=dict(t=50, b=20, l=20, r=20),
+                    title_font=dict(family="Share Tech Mono", size=13),
+                )
+                st.plotly_chart(fig_sb_n, use_container_width=True)
+            else:
+                st.info("No port data available for sunburst chart.")
 
     else:
-        # ── 8 CHARTS ─────────────────────────────────────────────────────────
+        # ── 9 CHARTS: 3 columns × 3 rows ─────────────────────────────────────
         st.markdown("#### Technical Deep-Dive")
         port_df = df[df["portid"] != "N/A"].copy()
 
-        # T0 -- Sunburst: host → severity → service (first chart, full width)
-        st.subheader("Risk Hierarchy")
+        _CHART_H = 340  # uniform height keeps all rows equal
+
+        # Pre-compute shared data frames used across rows
+        # Risk tag distribution
+        rt = port_df.groupby(["target", "risk_tag"]).size().reset_index(name="count") if not port_df.empty else pd.DataFrame()
+
+        # Services exposed
+        svc_c = pd.DataFrame()
+        if not port_df.empty:
+            svc_c = port_df["service"].value_counts().reset_index()
+            svc_c.columns = ["Service", "Count"]
+
+        # VT sub-score breakdown (melt)
+        vt_cols = ["bd_vt_malicious", "bd_vt_suspicious", "bd_vt_outlinks",
+                   "bd_vt_reputation", "bd_vt_stale"]
+        vt_bd = df.groupby("target")[vt_cols].first().reset_index()
+        vt_m  = vt_bd.melt(id_vars="target", var_name="Component", value_name="Score")
+        vt_m["Component"] = vt_m["Component"].str.replace("bd_vt_", "VT: ").str.title()
+
+        # Host-level agg for bubble chart
+        host_agg = df.groupby("target").agg(
+            exposure=("nmap_score",      "max"),
+            threat  =("vt_score",        "max"),
+            risk    =("composite_score", "max"),
+            services=("service", lambda x: ", ".join(sorted(set(x) - {"N/A"}))),
+            severity=("severity",        "first"),
+        ).reset_index()
+
+        # Avg risk per service
+        svc_risk = pd.DataFrame()
+        if not port_df.empty:
+            svc_risk = (
+                port_df[port_df["service"] != "N/A"]
+                .groupby("service")["composite_score"]
+                .mean()
+                .reset_index()
+            )
+            svc_risk.columns = ["Service", "Avg Risk"]
+            svc_risk = svc_risk.sort_values("Avg Risk", ascending=True)
+
+        # Port score heatmap pivot
+        heat = pd.DataFrame()
+        if not port_df.empty:
+            heat = port_df.pivot_table(
+                index="service", columns="target",
+                values="port_score", aggfunc="max"
+            ).fillna(0)
+
+        # Sunburst data
         _tech_sb_df = port_df[port_df["service"] != "N/A"].copy()
-        if not _tech_sb_df.empty:
-            fig_sb_t = px.sunburst(
-                _tech_sb_df,
-                path=["target", "severity", "service"],
-                values="composite_score",
-                color="severity",
-                color_discrete_map=SEV_COLORS,
-                title="Risk Hierarchy: Host → Severity → Service",
-            )
-            fig_sb_t.update_layout(
-                height=480,
-                paper_bgcolor=CHART_BG,
-                font_color=FONT_COLOR,
-                margin=dict(t=50, b=20, l=20, r=20),
-                title_font=dict(family="Share Tech Mono", size=13),
-            )
-            st.plotly_chart(fig_sb_t, use_container_width=True)
-            st.caption("Click a segment to zoom in  |  Click the centre to zoom out")
 
-        c1, c2 = st.columns(2)
+        # ── ROW 1 ─────────────────────────────────────────────────────────────
+        t_r1c1, t_r1c2, t_r1c3 = st.columns(3)
 
-        # T1 -- Composite vs Nmap vs VT grouped bar
-        with c1:
-            fig = go.Figure()
-            for col_name, color, name in [
-                ("composite_score", "#00d4ff", "Composite"),
-                ("nmap_score",      "#ff9900", "Nmap"),
-                ("vt_score",        "#ff4444", "VirusTotal"),
-            ]:
-                fig.add_trace(go.Bar(
-                    name=name, x=target_summary["target"],
-                    y=target_summary[col_name], marker_color=color,
-                    text=target_summary[col_name], textposition="outside", opacity=0.9,
-                ))
+        # [1][1] -- Port Risk Tag Distribution (stacked bar)
+        with t_r1c1:
+            if not rt.empty:
+                fig = px.bar(
+                    rt, x="target", y="count", color="risk_tag",
+                    title="Port Risk Tag Distribution",
+                    color_discrete_map={"high": "#ff4444", "medium": "#ff9900",
+                                        "low": "#00d68f", "ok": "#00d4ff"},
+                    barmode="stack", text="count",
+                )
+                fig.update_traces(textposition="inside")
+                fig.update_layout(
+                    height=_CHART_H,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    xaxis=dict(gridcolor=GRID_COL),
+                    yaxis=dict(gridcolor=GRID_COL),
+                    legend=dict(bgcolor=CHART_BG),
+                    margin=dict(t=50, b=20, l=20, r=20),
+                    title_font=dict(family="Share Tech Mono", size=12),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        # [1][2] -- Services Exposed (horizontal bar)
+        with t_r1c2:
+            if not svc_c.empty:
+                fig = px.bar(
+                    svc_c, x="Count", y="Service", orientation="h",
+                    title="Services Exposed (all targets)",
+                    color="Count",
+                    color_continuous_scale=["#00d68f", "#ffcc00", "#ff4444"],
+                    text="Count",
+                )
+                fig.update_layout(
+                    height=_CHART_H, showlegend=False,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    yaxis=dict(categoryorder="total ascending", gridcolor=GRID_COL),
+                    xaxis=dict(gridcolor=GRID_COL),
+                    margin=dict(t=50, b=20, l=20, r=20),
+                    title_font=dict(family="Share Tech Mono", size=12),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        # [1][3] -- VT Score Breakdown (stacked bar)
+        with t_r1c3:
+            fig = px.bar(
+                vt_m, x="target", y="Score", color="Component",
+                title="VT Score Breakdown per Target",
+                color_discrete_sequence=["#ff4444", "#ff9900", "#ffcc00", "#00d4ff", "#8b949e"],
+                barmode="stack", text="Score",
+            )
+            fig.update_traces(textposition="inside")
             fig.update_layout(
-                barmode="group", title="Score Breakdown: Composite vs Nmap vs VT",
-                height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                height=_CHART_H,
+                paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
                 font_color=FONT_COLOR,
                 xaxis=dict(gridcolor=GRID_COL),
-                yaxis=dict(gridcolor=GRID_COL, range=[0, 115]),
+                yaxis=dict(gridcolor=GRID_COL),
                 legend=dict(bgcolor=CHART_BG),
+                margin=dict(t=50, b=20, l=20, r=20),
                 title_font=dict(family="Share Tech Mono", size=12),
             )
             st.plotly_chart(fig, use_container_width=True)
 
-        # T2 -- Port risk tag stacked bar
-        with c2:
-            if not port_df.empty:
-                rt = port_df.groupby(["target", "risk_tag"]).size().reset_index(name="count")
-                fig = px.bar(rt, x="target", y="count", color="risk_tag",
-                             title="Port Risk Tag Distribution per Target",
-                             color_discrete_map={"high": "#ff4444", "medium": "#ff9900",
-                                                  "low": "#00d68f", "ok": "#00d4ff"},
-                             barmode="stack", text="count")
-                fig.update_traces(textposition="inside")
-                fig.update_layout(height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                                   font_color=FONT_COLOR,
-                                   xaxis=dict(gridcolor=GRID_COL),
-                                   yaxis=dict(gridcolor=GRID_COL),
-                                   legend=dict(bgcolor=CHART_BG),
-                                   title_font=dict(family="Share Tech Mono", size=12))
-                st.plotly_chart(fig, use_container_width=True)
+        # ── ROW 2 ─────────────────────────────────────────────────────────────
+        t_r2c1, t_r2c2, t_r2c3 = st.columns(3)
 
-        c3, c4 = st.columns(2)
+        # [2][1] -- Composite Risk vs Open Ports (scatter)
+        with t_r2c1:
+            fig = px.scatter(
+                target_summary, x="open_ports", y="composite_score",
+                size="composite_score", color="severity",
+                color_discrete_map=SEV_COLORS, size_max=50,
+                hover_name="target", text="target",
+                title="Composite Risk vs Open Ports",
+                labels={"open_ports": "Open Ports",
+                        "composite_score": "Composite Risk Score"},
+            )
+            fig.update_traces(textposition="top center",
+                              marker=dict(line=dict(width=1, color="#30363d")))
+            fig.update_layout(
+                height=_CHART_H,
+                paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                font_color=FONT_COLOR,
+                xaxis=dict(gridcolor=GRID_COL),
+                yaxis=dict(gridcolor=GRID_COL, range=[-5, 110]),
+                legend=dict(bgcolor=CHART_BG),
+                margin=dict(t=50, b=20, l=20, r=20),
+                title_font=dict(family="Share Tech Mono", size=12),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        # T3 -- Services exposed horizontal bar
-        with c3:
-            if not port_df.empty:
-                svc_c = port_df["service"].value_counts().reset_index()
-                svc_c.columns = ["Service", "Count"]
-                fig = px.bar(svc_c, x="Count", y="Service", orientation="h",
-                             title="Services Exposed (all targets)",
-                             color="Count",
-                             color_continuous_scale=["#00d68f", "#ffcc00", "#ff4444"],
-                             text="Count")
-                fig.update_layout(height=380, showlegend=False,
-                                   paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                                   font_color=FONT_COLOR,
-                                   yaxis=dict(categoryorder="total ascending",
-                                              gridcolor=GRID_COL),
-                                   xaxis=dict(gridcolor=GRID_COL),
-                                   title_font=dict(family="Share Tech Mono", size=12))
-                st.plotly_chart(fig, use_container_width=True)
-
-        # T4 -- Port score heatmap
-        with c4:
-            if not port_df.empty:
-                heat = port_df.pivot_table(index="service", columns="target",
-                                            values="port_score", aggfunc="max").fillna(0)
-                fig = px.imshow(heat,
-                                color_continuous_scale=["#0d1117", "#ffcc00", "#ff4444"],
-                                title="Port Score Heatmap (Service x Target)",
-                                aspect="auto")
-                fig.update_layout(height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                                   font_color=FONT_COLOR,
-                                   title_font=dict(family="Share Tech Mono", size=12))
-                st.plotly_chart(fig, use_container_width=True)
-
-        c5, c6 = st.columns(2)
-
-        # T5 -- VT sub-score breakdown
-        with c5:
-            vt_cols = ["bd_vt_malicious", "bd_vt_suspicious", "bd_vt_outlinks",
-                       "bd_vt_reputation", "bd_vt_stale"]
-            vt_bd = df.groupby("target")[vt_cols].first().reset_index()
-            vt_m  = vt_bd.melt(id_vars="target", var_name="Component", value_name="Score")
-            vt_m["Component"] = vt_m["Component"].str.replace("bd_vt_", "VT: ").str.title()
-            fig = px.bar(vt_m, x="target", y="Score", color="Component",
-                         title="VT Score Breakdown per Target",
-                         color_discrete_sequence=["#ff4444","#ff9900","#ffcc00","#00d4ff","#8b949e"],
-                         barmode="stack", text="Score")
+        # [2][2] -- VT Score Breakdown (stacked bar, same as [1][3] but distinct colour sequence)
+        with t_r2c2:
+            fig = px.bar(
+                vt_m, x="target", y="Score", color="Component",
+                title="VT Component Detail",
+                color_discrete_sequence=["#ff4444", "#ff9900", "#ffcc00", "#00d4ff", "#8b949e"],
+                barmode="stack", text="Score",
+            )
             fig.update_traces(textposition="inside")
-            fig.update_layout(height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                               font_color=FONT_COLOR,
-                               xaxis=dict(gridcolor=GRID_COL),
-                               yaxis=dict(gridcolor=GRID_COL),
-                               legend=dict(bgcolor=CHART_BG),
-                               title_font=dict(family="Share Tech Mono", size=12))
+            fig.update_layout(
+                height=_CHART_H,
+                paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                font_color=FONT_COLOR,
+                xaxis=dict(gridcolor=GRID_COL),
+                yaxis=dict(gridcolor=GRID_COL),
+                legend=dict(bgcolor=CHART_BG),
+                margin=dict(t=50, b=20, l=20, r=20),
+                title_font=dict(family="Share Tech Mono", size=12),
+            )
             st.plotly_chart(fig, use_container_width=True)
 
-        # T6 -- Nmap sub-score breakdown
-        with c6:
-            nmap_cols = ["bd_port_avg", "bd_uptime", "bd_eol_os"]
-            nm_bd = df.groupby("target")[nmap_cols].first().reset_index()
-            nm_m  = nm_bd.melt(id_vars="target", var_name="Component", value_name="Score")
-            nm_m["Component"] = (nm_m["Component"].str.replace("bd_", "Nmap: ")
-                                  .str.replace("_", " ").str.title())
-            fig = px.bar(nm_m, x="target", y="Score", color="Component",
-                         title="Nmap Score Breakdown per Target",
-                         color_discrete_sequence=["#0070f3", "#4f8ef7", "#00d4ff"],
-                         barmode="stack", text="Score")
-            fig.update_traces(textposition="inside")
-            fig.update_layout(height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                               font_color=FONT_COLOR,
-                               xaxis=dict(gridcolor=GRID_COL),
-                               yaxis=dict(gridcolor=GRID_COL),
-                               legend=dict(bgcolor=CHART_BG),
-                               title_font=dict(family="Share Tech Mono", size=12))
-            st.plotly_chart(fig, use_container_width=True)
-
-        # T7 -- Risk vs Exposure bubble (full width)
-        st.subheader("Risk vs Exposure")
-        fig = px.scatter(target_summary, x="open_ports", y="composite_score",
-                         size="composite_score", color="severity",
-                         color_discrete_map=SEV_COLORS, size_max=70,
-                         hover_name="target", text="target",
-                         title="Composite Risk vs Open Ports per Target",
-                         labels={"open_ports": "Open Ports",
-                                  "composite_score": "Composite Risk Score"})
-        fig.update_traces(textposition="top center",
-                          marker=dict(line=dict(width=1, color="#30363d")))
-        fig.update_layout(height=480, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                           font_color=FONT_COLOR,
-                           xaxis=dict(gridcolor=GRID_COL),
-                           yaxis=dict(gridcolor=GRID_COL, range=[-5, 110]),
-                           legend=dict(bgcolor=CHART_BG),
-                           title_font=dict(family="Share Tech Mono", size=13))
-        st.plotly_chart(fig, use_container_width=True)
-
-        # T8 -- Port state distribution (full width)
-        st.subheader("Port State Distribution")
-        if not port_df.empty:
-            state_p = port_df.groupby(["target", "state"]).size().reset_index(name="count")
-            fig = px.bar(state_p, x="target", y="count", color="state",
-                         title="Port State per Target (open / filtered / closed)",
-                         color_discrete_sequence=["#ff4444", "#ffcc00", "#00d68f", "#00d4ff"],
-                         barmode="group", text="count")
-            fig.update_traces(textposition="outside")
-            fig.update_layout(height=380, paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
-                               font_color=FONT_COLOR,
-                               xaxis=dict(gridcolor=GRID_COL),
-                               yaxis=dict(gridcolor=GRID_COL),
-                               legend=dict(bgcolor=CHART_BG),
-                               title_font=dict(family="Share Tech Mono", size=13))
-            st.plotly_chart(fig, use_container_width=True)
-
-        # ── ADDITIONAL CHARTS ─────────────────────────────────────────────────
-        c_new1, c_new2 = st.columns(2)
-
-        # T10 -- Horizontal bar: average risk score per service (sorted)
-        with c_new1:
-            if not port_df.empty:
-                svc_risk = (
-                    port_df[port_df["service"] != "N/A"]
-                    .groupby("service")["composite_score"]
-                    .mean()
-                    .reset_index()
+        # [2][3] -- Risk Heatmap Bubble (exposure vs threat)
+        with t_r2c3:
+            if not host_agg.empty:
+                fig_bub = px.scatter(
+                    host_agg,
+                    x="exposure", y="threat",
+                    size="risk", size_max=50,
+                    color="risk",
+                    color_continuous_scale="RdYlGn_r",
+                    text="target",
+                    hover_data=["services", "severity"],
+                    title="Exposure vs Threat Bubble",
+                    labels={"exposure": "Exposure (Nmap)",
+                            "threat":   "Threat (VT)"},
                 )
-                svc_risk.columns = ["Service", "Avg Risk"]
-                svc_risk = svc_risk.sort_values("Avg Risk", ascending=True)
+                fig_bub.update_traces(textposition="top center")
+                fig_bub.update_layout(
+                    height=_CHART_H,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    xaxis=dict(gridcolor=GRID_COL),
+                    yaxis=dict(gridcolor=GRID_COL),
+                    coloraxis_colorbar_title="Risk",
+                    margin=dict(t=50, b=20, l=20, r=20),
+                    title_font=dict(family="Share Tech Mono", size=12),
+                )
+                st.plotly_chart(fig_bub, use_container_width=True)
+
+        # ── ROW 3 ─────────────────────────────────────────────────────────────
+        t_r3c1, t_r3c2, t_r3c3 = st.columns(3)
+
+        # [3][1] -- Average Risk Score per Service (horizontal bar)
+        with t_r3c1:
+            if not svc_risk.empty:
                 fig_hb = px.bar(
                     svc_risk,
-                    x="Avg Risk",
-                    y="Service",
+                    x="Avg Risk", y="Service",
                     orientation="h",
                     color="Avg Risk",
                     color_continuous_scale="RdYlGn_r",
                     text="Avg Risk",
-                    title="Average Risk Score per Service",
+                    title="Avg Risk Score per Service",
                 )
-                fig_hb.update_traces(
-                    texttemplate="%{text:.1f}",
-                    textposition="outside",
-                )
+                fig_hb.update_traces(texttemplate="%{text:.1f}", textposition="outside")
                 fig_hb.update_layout(
-                    height=380,
-                    paper_bgcolor=CHART_BG,
-                    plot_bgcolor=CHART_BG,
+                    height=_CHART_H,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
                     font_color=FONT_COLOR,
                     coloraxis_showscale=False,
                     xaxis=dict(gridcolor=GRID_COL),
@@ -879,48 +899,45 @@ with tab1:
                 )
                 st.plotly_chart(fig_hb, use_container_width=True)
 
-        # T11 -- Bubble / heatmap: exposure (nmap_score) vs threat (vt_score)
-        with c_new2:
-            host_agg = (
-                df.groupby("target").agg(
-                    exposure=("nmap_score",      "max"),
-                    threat  =("vt_score",        "max"),
-                    risk    =("composite_score", "max"),
-                    services=("service", lambda x: ", ".join(sorted(set(x) - {"N/A"}))),
-                    severity=("severity",        "first"),
-                ).reset_index()
-            )
-            if not host_agg.empty:
-                fig_bub = px.scatter(
-                    host_agg,
-                    x="exposure",
-                    y="threat",
-                    size="risk",
-                    size_max=50,
-                    color="risk",
-                    color_continuous_scale="RdYlGn_r",
-                    text="target",
-                    hover_data=["services", "severity"],
-                    title="Risk Heatmap: Exposure Score vs Threat Score",
-                    labels={
-                        "exposure": "Exposure Score (Nmap)",
-                        "threat":   "Threat Score (VT)",
-                    },
+        # [3][2] -- Port Score Heatmap (service × target)
+        with t_r3c2:
+            if not heat.empty:
+                fig = px.imshow(
+                    heat,
+                    color_continuous_scale=["#0d1117", "#ffcc00", "#ff4444"],
+                    title="Port Score Heatmap (Service × Target)",
+                    aspect="auto",
                 )
-                fig_bub.update_traces(textposition="top center")
-                fig_bub.update_layout(
-                    height=380,
-                    paper_bgcolor=CHART_BG,
-                    plot_bgcolor=CHART_BG,
+                fig.update_layout(
+                    height=_CHART_H,
+                    paper_bgcolor=CHART_BG, plot_bgcolor=CHART_BG,
                     font_color=FONT_COLOR,
-                    xaxis=dict(gridcolor=GRID_COL),
-                    yaxis=dict(gridcolor=GRID_COL),
-                    coloraxis_colorbar_title="Risk",
-                    title_font=dict(family="Share Tech Mono", size=12),
                     margin=dict(t=50, b=20, l=20, r=20),
+                    title_font=dict(family="Share Tech Mono", size=12),
                 )
-                st.plotly_chart(fig_bub, use_container_width=True)
-                st.caption("Top-right = most dangerous  |  Bubble size = composite risk score")
+                st.plotly_chart(fig, use_container_width=True)
+
+        # [3][3] -- Risk Hierarchy Sunburst
+        with t_r3c3:
+            if not _tech_sb_df.empty:
+                fig_sb_t = px.sunburst(
+                    _tech_sb_df,
+                    path=["target", "severity", "service"],
+                    values="composite_score",
+                    color="severity",
+                    color_discrete_map=SEV_COLORS,
+                    title="Risk Hierarchy: Host → Severity → Service",
+                )
+                fig_sb_t.update_layout(
+                    height=_CHART_H,
+                    paper_bgcolor=CHART_BG,
+                    font_color=FONT_COLOR,
+                    margin=dict(t=50, b=20, l=20, r=20),
+                    title_font=dict(family="Share Tech Mono", size=12),
+                )
+                st.plotly_chart(fig_sb_t, use_container_width=True)
+            else:
+                st.info("No port data for sunburst.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 -- SCAN DATA
