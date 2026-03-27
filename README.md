@@ -28,6 +28,12 @@ Cyber-Risk-and-Threat-Intelligence-platform/
 │
 └── scans/                        # Auto-created; stores Nmap XML output files
 ```
+---
+
+## 📸 Screenshots
+
+
+[screenshots - Cyber Risk and Threat Intelligence Platform.pdf](https://github.com/user-attachments/files/26314005/screenshots.-.Cyber.Risk.and.Threat.Intelligence.Platform.pdf)
 
 ---
 
@@ -182,21 +188,6 @@ The `sample_test_targets.txt` file contains the following intentionally vulnerab
 
 > ⚠️ **Only scan targets you have explicit permission to test.** All sample targets above are publicly provided for security testing purposes.
 
----
-
-## 📸 Screenshots
-
-
-
-- **[ Screenshot 1 ]** — Dashboard home page showing the overall risk summary cards (total hosts, critical count, max score)
-- **[ Screenshot 2 ]** — Bar chart of composite risk scores per target
-- **[ Screenshot 3 ]** — Detailed port-level risk table showing open ports, services, and severity labels
-- **[ Screenshot 4 ]** — VirusTotal results panel showing malicious/suspicious engine counts and reputation scores
-- **[ Screenshot 5 ]** — Scan history tab showing past scans retrieved from the SQLite database
-- **[ Screenshot 6 ]** — Example email alert received for a CRITICAL or HIGH severity target
-- **[ Screenshot 7 ]** — Terminal output showing Nmap scan running and XML files being written to `scans/`
-
----
 
 ## 👥 Team Members
 
