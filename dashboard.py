@@ -43,7 +43,8 @@ except ImportError:
 #   GMAIL_SENDER=you@gmail.com
 #   GMAIL_PASSWORD=xxxx xxxx xxxx xxxx
 #   GMAIL_RECIPIENT=alert@example.com
-#   SCAN_TARGETS=testasp.vulnweb.com,testphp.vulnweb.com
+#   SCAN_TARGETS=""
+
 VT_API_KEY      = os.environ.get("VT_API_KEY", "")
 sender_email    = os.environ.get("GMAIL_SENDER", "")
 app_password    = os.environ.get("GMAIL_PASSWORD", "")
@@ -151,6 +152,7 @@ SEV_COLORS = {
 }
 
 # ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+st.sidebar.image("cyberscan_logo-removebg-preview.png", width = 100)
 st.sidebar.title("CyberScan Pro")
 st.sidebar.divider()
 
@@ -160,6 +162,38 @@ view_mode = st.sidebar.radio(
     ["Naive User", "Technical User"]
 )
 st.sidebar.divider()
+
+st.sidebar.title("⚙️ Settings")
+st.sidebar.caption("Configure your scanner.")
+
+target_input = st.sidebar.text_area("Enter Targets (comma or newline separated)", value="")
+targets = [t.strip() for t in target_input.replace('\n', ',').split(',') if t.strip()]
+
+st.sidebar.divider()
+st.sidebar.subheader("🔑 API Key")
+VT_API_KEY = st.sidebar.text_input("Enter VirusTotal API Key", type="password")
+
+st.sidebar.divider()
+st.sidebar.subheader("✉️ Email Setup")
+recipient_email = st.sidebar.text_input("Alert Recipient Address")
+
+#Scan controls
+st.sidebar.subheader("Scan Controls")
+scan_button    = st.sidebar.button("Run Full Scan",  use_container_width=True, type="primary")
+refresh_button = st.sidebar.button("Refresh Scan",   use_container_width=True)
+st.sidebar.divider()
+
+#Scan history
+st.sidebar.title("Compare Scan History")
+hist_button    = st.sidebar.button("Compare",  use_container_width=True, type="primary")
+st.sidebar.divider()
+
+st.sidebar.subheader("Filter Results")
+
+# ─── SESSION STATE ────────────────────────────────────────────────────────────
+for _k in ["reports", "scan_time", "last_refreshed"]:
+    if _k not in st.session_state:
+        st.session_state[_k] = None
 
 # Status block
 st.sidebar.subheader("Status")
@@ -182,17 +216,6 @@ else:
 st.sidebar.caption(f"Targets: {', '.join(targets)}")
 st.sidebar.divider()
 
-# Scan controls
-st.sidebar.subheader("Scan Controls")
-scan_button    = st.sidebar.button("Run Full Scan",  use_container_width=True, type="primary")
-refresh_button = st.sidebar.button("Refresh Scan",   use_container_width=True)
-st.sidebar.divider()
-st.sidebar.subheader("Filter Results")
-
-# ─── SESSION STATE ────────────────────────────────────────────────────────────
-for _k in ["reports", "scan_time", "last_refreshed"]:
-    if _k not in st.session_state:
-        st.session_state[_k] = None
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 def reports_to_df(reports: list) -> pd.DataFrame:
@@ -419,8 +442,9 @@ reports   = st.session_state.reports if not is_sample else SAMPLE_REPORTS
 df        = reports_to_df(reports)
 
 # ─── HEADER ───────────────────────────────────────────────────────────────────
-col_title, col_ref, col_btn = st.columns([5, 3, 1])
+col_title, col_ref, col_btn = st.columns([6, 3, 1])
 with col_title:
+    st.image("cyberscan_logo-removebg-preview.png", width = 150)
     st.title("CyberScan Pro")
     st.caption("Professional Network Reconnaissance & Threat Intelligence Dashboard")
 with col_ref:
@@ -509,54 +533,19 @@ st.divider()
 
 # ─── TABS ─────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Scan Data",
     "Charts",
+    "Scan Data",
     "Threat Intel",
     "Export",
     "About KPIs",
 ])
 
+
+
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 1 -- SCAN DATA
+# TAB 1 -- CHARTS
 # ══════════════════════════════════════════════════════════════════════════════
 with tab1:
-    st.subheader("Scan Results")
-
-    if df.empty:
-        st.info("No data yet -- run a scan.")
-    else:
-        st.caption(f"Showing {len(filt)} of {len(df)} rows after filters")
-
-        if view_mode == "Naive User":
-            naive_cols = ["target", "portid", "service", "state", "risk_tag",
-                          "severity", "composite_score"]
-            disp = filt[[c for c in naive_cols if c in filt.columns]].copy()
-            disp.columns = ["Target", "Port", "Service", "State", "Risk Tag",
-                             "Severity", "Risk Score"]
-        else:
-            tech_cols = ["target", "portid", "service", "state", "risk_tag",
-                         "port_score", "composite_score", "nmap_score",
-                         "vt_score", "severity", "findings"]
-            disp = filt[[c for c in tech_cols if c in filt.columns]].copy()
-            disp.columns = [c.replace("_", " ").title()
-                            for c in tech_cols if c in filt.columns]
-
-        st.write(disp.to_html(index=False), unsafe_allow_html=True)
-
-    st.divider()
-    st.subheader("Host Summary")
-    if not target_summary.empty:
-        ts_disp = target_summary.rename(columns={
-            "target": "Target", "composite_score": "Risk Score",
-            "severity": "Severity", "nmap_score": "Nmap Score",
-            "vt_score": "VT Score", "open_ports": "Open Ports",
-        })
-        st.write(ts_disp.to_html(index=False), unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB 2 -- CHARTS
-# ══════════════════════════════════════════════════════════════════════════════
-with tab2:
     st.subheader("Interactive Charts")
     st.caption("Hover for details  |  Drag to zoom  |  Double-click to reset  |  Click legend to toggle")
 
@@ -919,6 +908,43 @@ with tab2:
                 st.caption("Top-right = most dangerous  |  Bubble size = composite risk score")
 
 # ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 -- SCAN DATA
+# ══════════════════════════════════════════════════════════════════════════════
+
+with tab2:
+    st.subheader("Scan Results")
+
+    if df.empty:
+        st.info("No data yet -- run a scan.")
+    else:
+        st.caption(f"Showing {len(filt)} of {len(df)} rows after filters")
+
+        if view_mode == "Naive User":
+            naive_cols = ["target", "portid", "service", "state", "risk_tag",
+                          "severity", "composite_score"]
+            disp = filt[[c for c in naive_cols if c in filt.columns]].copy()
+            disp.columns = ["Target", "Port", "Service", "State", "Risk Tag",
+                             "Severity", "Risk Score"]
+        else:
+            tech_cols = ["target", "portid", "service", "state", "risk_tag",
+                         "port_score", "composite_score", "nmap_score",
+                         "vt_score", "severity", "findings"]
+            disp = filt[[c for c in tech_cols if c in filt.columns]].copy()
+            disp.columns = [c.replace("_", " ").title()
+                            for c in tech_cols if c in filt.columns]
+
+        st.write(disp.to_html(index=False), unsafe_allow_html=True)
+
+    st.divider()
+    st.subheader("Host Summary")
+    if not target_summary.empty:
+        ts_disp = target_summary.rename(columns={
+            "target": "Target", "composite_score": "Risk Score",
+            "severity": "Severity", "nmap_score": "Nmap Score",
+            "vt_score": "VT Score", "open_ports": "Open Ports",
+        })
+        st.write(ts_disp.to_html(index=False), unsafe_allow_html=True)
+# ══════════════════════════════════════════════════════════════════════════════
 # TAB 3 -- THREAT INTEL
 # ══════════════════════════════════════════════════════════════════════════════
 with tab3:
@@ -1120,7 +1146,7 @@ If any host is high, take action immediately.
             "GMAIL_SENDER=you@gmail.com\n"
             "GMAIL_PASSWORD=xxxx xxxx xxxx xxxx\n"
             "GMAIL_RECIPIENT=alerts@example.com\n"
-            "SCAN_TARGETS=testasp.vulnweb.com,testphp.vulnweb.com\n\n"
+            "SCAN_TARGETS=examplescannerwebsite"
             "# 3. Run from the project root folder\n"
             "streamlit run dashboard.py",
             language="bash",
