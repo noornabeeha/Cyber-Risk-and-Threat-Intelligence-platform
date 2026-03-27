@@ -7,8 +7,6 @@ import sys
 import os
 
 # ─── PATH SETUP ───────────────────────────────────────────────────────────────
-# Ensure the project root is on sys.path so that `scanners` package is found
-# regardless of how Streamlit is launched (terminal, VS Code Run button, etc.)
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -27,24 +25,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # ─── LOAD .env  ───────────────────────────────────────────────────────────────
-# python-dotenv reads the .env file in the project root and populates
-# os.environ, so the rest of the code can use os.environ.get() uniformly.
-# Install once:  pip install python-dotenv
 try:
     from dotenv import load_dotenv
-    # override=False: keep existing shell env vars (set in terminal) untouched
     load_dotenv(dotenv_path=os.path.join(ROOT_DIR, ".env"), override=False)
 except ImportError:
-    pass  # dotenv not installed — fall back to whatever is already in os.environ
+    pass
 
-# ─── CREDENTIALS (from .env or real environment variables) ────────────────────
-# .env file example (no quotes around values):
-#   VT_API_KEY=your_virustotal_key
-#   GMAIL_SENDER=you@gmail.com
-#   GMAIL_PASSWORD=xxxx xxxx xxxx xxxx
-#   GMAIL_RECIPIENT=alert@example.com
-#   SCAN_TARGETS=""
-
+# ─── CREDENTIALS ─────────────────────────────────────────────────────────────
 VT_API_KEY      = os.environ.get("VT_API_KEY", "")
 sender_email    = os.environ.get("GMAIL_SENDER", "")
 app_password    = os.environ.get("GMAIL_PASSWORD", "")
@@ -55,21 +42,10 @@ DEFAULT_TARGETS = "testasp.vulnweb.com,testphp.vulnweb.com,zero.webappsecurity.c
 targets = [t.strip() for t in (targets_env or DEFAULT_TARGETS).split(",") if t.strip()]
 
 # ─── SCAN OUTPUT DIRECTORY ────────────────────────────────────────────────────
-# Matches the `scans/` folder visible in your VS Code tree.
 SCAN_DIR = os.path.join(ROOT_DIR, "scans")
 os.makedirs(SCAN_DIR, exist_ok=True)
 
-# ─── IMPORT getScore FROM scanners PACKAGE ────────────────────────────────────
-# Directory layout:
-#   scanners/
-#       __init__.py
-#       risk_scoring.py      <- contains getScore()
-#       nmap_scanner/
-#           __init__.py
-#           nmap_scanner.py
-#       vt_scanner/
-#           __init__.py
-#           vt_scanner.py
+# ─── IMPORT getScore ──────────────────────────────────────────────────────────
 _import_err_msg = ""
 try:
     from scanners.risk_scoring import getScore
@@ -78,14 +54,14 @@ except Exception as _import_err:
     RISK_SCORING_AVAILABLE = False
     _import_err_msg = str(_import_err)
 
-# ─── DATABASE (history persistence) ──────────────────────────────────────────
+# ─── DATABASE ─────────────────────────────────────────────────────────────────
 try:
     from database import save_scan, load_history, load_scan_by_id, delete_scan
     DB_AVAILABLE = True
 except Exception as _db_err:
     DB_AVAILABLE = False
 
-# ─── PAGE CONFIG (must be first Streamlit call) ───────────────────────────────
+# ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="CyberScan Pro",
     page_icon="shield",
@@ -158,65 +134,68 @@ SEV_COLORS = {
     "INFO":     "#00d4ff",
 }
 
-# ─── SIDEBAR ──────────────────────────────────────────────────────────────────
-st.sidebar.image("cyberscan_logo-removebg-preview.png", width = 100)
-st.sidebar.title("CyberScan Pro")
-st.sidebar.divider()
-
-st.sidebar.title("Dashboard Mode")
-view_mode = st.sidebar.radio(
-    "Select your expertise level:",
-    ["Naive User", "Technical User"]
-)
-st.sidebar.divider()
-
-st.sidebar.title("⚙️ Settings")
-st.sidebar.caption("Configure your scanner.")
-
-target_input = st.sidebar.text_area("Enter Targets (comma or newline separated)", value="")
-targets = [t.strip() for t in target_input.replace('\n', ',').split(',') if t.strip()]
-
-st.sidebar.divider()
-st.sidebar.subheader("🔑 API Key")
-VT_API_KEY = st.sidebar.text_input("Enter VirusTotal API Key", type="password")
-
-st.sidebar.divider()
-st.sidebar.subheader("✉️ Email Setup")
-recipient_email = st.sidebar.text_input("Alert Recipient Address")
-
-#Scan controls
-st.sidebar.subheader("Scan Controls")
-scan_button    = st.sidebar.button("Run Full Scan",  use_container_width=True, type="primary")
-refresh_button = st.sidebar.button("Refresh Scan",   use_container_width=True)
-st.sidebar.divider()
-
-
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 for _k in ["reports", "scan_time", "last_refreshed"]:
     if _k not in st.session_state:
         st.session_state[_k] = None
 
-# Status block
-st.sidebar.subheader("Status")
-
-if not RISK_SCORING_AVAILABLE:
-    st.sidebar.error(f"scanners import failed:\n{_import_err_msg}")
-else:
-    st.sidebar.success("scanners package loaded")
-
-if VT_API_KEY:
-    st.sidebar.success("VT_API_KEY ready")
-else:
-    st.sidebar.error("VT_API_KEY not set in .env")
-
-if sender_email and app_password and recipient_email:
-    st.sidebar.success("Email credentials ready")
-else:
-    st.sidebar.warning("Email secrets missing in .env")
-
-st.sidebar.caption(f"Targets: {', '.join(targets)}")
-st.sidebar.divider()
-
+# ─── SAMPLE DATA ──────────────────────────────────────────────────────────────
+SAMPLE_REPORTS = [
+    {
+        "target": "example-host-1.com", "scan_time": "2025-01-01T00:00:00Z",
+        "composite_score": 72, "severity": "HIGH",
+        "nmap_score": 65, "vt_score": 80,
+        "port_results": [
+            {"portid": "22",  "service": "ssh",    "state": "open", "risk_tag": "medium", "score": 25},
+            {"portid": "21",  "service": "ftp",    "state": "open", "risk_tag": "high",   "score": 45},
+            {"portid": "80",  "service": "http",   "state": "open", "risk_tag": "low",    "score": 10},
+            {"portid": "443", "service": "https",  "state": "open", "risk_tag": "low",    "score": 5},
+            {"portid": "23",  "service": "telnet", "state": "open", "risk_tag": "high",   "score": 45},
+        ],
+        "findings": [
+            "Port 21/ftp: HIGH -- FTP transmits credentials in plaintext",
+            "Port 23/telnet: HIGH -- Telnet is unencrypted",
+            "VT: 3/72 engines flagged as malicious",
+        ],
+        "breakdown": {
+            "nmap": {"port_avg": 26, "uptime": 15, "eol_os": 0},
+            "vt":   {"malicious": 35, "suspicious": 10, "outlinks": 0, "reputation": 5, "stale": 0},
+        },
+    },
+    {
+        "target": "example-host-2.com", "scan_time": "2025-01-01T00:00:00Z",
+        "composite_score": 38, "severity": "MEDIUM",
+        "nmap_score": 30, "vt_score": 48,
+        "port_results": [
+            {"portid": "80",   "service": "http",       "state": "open", "risk_tag": "low",    "score": 10},
+            {"portid": "443",  "service": "https",      "state": "open", "risk_tag": "low",    "score": 5},
+            {"portid": "8080", "service": "http-proxy", "state": "open", "risk_tag": "medium", "score": 25},
+            {"portid": "3306", "service": "mysql",      "state": "open", "risk_tag": "high",   "score": 45},
+        ],
+        "findings": [
+            "Port 3306/mysql: HIGH -- Database exposed to internet",
+            "VT: 1/72 engines flagged as suspicious",
+        ],
+        "breakdown": {
+            "nmap": {"port_avg": 21, "uptime": 0, "eol_os": 0},
+            "vt":   {"malicious": 0, "suspicious": 10, "outlinks": 15, "reputation": 0, "stale": 10},
+        },
+    },
+    {
+        "target": "example-host-3.com", "scan_time": "2025-01-01T00:00:00Z",
+        "composite_score": 15, "severity": "LOW",
+        "nmap_score": 10, "vt_score": 20,
+        "port_results": [
+            {"portid": "80",  "service": "http",  "state": "open", "risk_tag": "low", "score": 10},
+            {"portid": "443", "service": "https", "state": "open", "risk_tag": "low", "score": 5},
+        ],
+        "findings": ["VT: Last scan 45 days old -- may be stale"],
+        "breakdown": {
+            "nmap": {"port_avg": 7, "uptime": 0, "eol_os": 0},
+            "vt":   {"malicious": 0, "suspicious": 0, "outlinks": 0, "reputation": 0, "stale": 10},
+        },
+    },
+]
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 def reports_to_df(reports: list) -> pd.DataFrame:
@@ -261,7 +240,7 @@ def reports_to_df(reports: list) -> pd.DataFrame:
                 state      = p.get("state", "?")
                 risk_tag   = p.get("risk_tag") or "ok"
                 port_score = p.get("score", 0)
-            else:  # PortRisk dataclass instance
+            else:
                 portid     = p.portid
                 service    = p.service
                 state      = p.state
@@ -336,63 +315,76 @@ def send_alert_email(sender, password, recipient, df_high, scan_time):
         return str(e)
 
 
-# ─── SAMPLE DATA ──────────────────────────────────────────────────────────────
-SAMPLE_REPORTS = [
-    {
-        "target": "example-host-1.com", "scan_time": "2025-01-01T00:00:00Z",
-        "composite_score": 72, "severity": "HIGH",
-        "nmap_score": 65, "vt_score": 80,
-        "port_results": [
-            {"portid": "22",  "service": "ssh",    "state": "open", "risk_tag": "medium", "score": 25},
-            {"portid": "21",  "service": "ftp",    "state": "open", "risk_tag": "high",   "score": 45},
-            {"portid": "80",  "service": "http",   "state": "open", "risk_tag": "low",    "score": 10},
-            {"portid": "443", "service": "https",  "state": "open", "risk_tag": "low",    "score": 5},
-            {"portid": "23",  "service": "telnet", "state": "open", "risk_tag": "high",   "score": 45},
-        ],
-        "findings": [
-            "Port 21/ftp: HIGH -- FTP transmits credentials in plaintext",
-            "Port 23/telnet: HIGH -- Telnet is unencrypted",
-            "VT: 3/72 engines flagged as malicious",
-        ],
-        "breakdown": {
-            "nmap": {"port_avg": 26, "uptime": 15, "eol_os": 0},
-            "vt":   {"malicious": 35, "suspicious": 10, "outlinks": 0, "reputation": 5, "stale": 0},
-        },
-    },
-    {
-        "target": "example-host-2.com", "scan_time": "2025-01-01T00:00:00Z",
-        "composite_score": 38, "severity": "MEDIUM",
-        "nmap_score": 30, "vt_score": 48,
-        "port_results": [
-            {"portid": "80",   "service": "http",       "state": "open", "risk_tag": "low",    "score": 10},
-            {"portid": "443",  "service": "https",      "state": "open", "risk_tag": "low",    "score": 5},
-            {"portid": "8080", "service": "http-proxy", "state": "open", "risk_tag": "medium", "score": 25},
-            {"portid": "3306", "service": "mysql",      "state": "open", "risk_tag": "high",   "score": 45},
-        ],
-        "findings": [
-            "Port 3306/mysql: HIGH -- Database exposed to internet",
-            "VT: 1/72 engines flagged as suspicious",
-        ],
-        "breakdown": {
-            "nmap": {"port_avg": 21, "uptime": 0, "eol_os": 0},
-            "vt":   {"malicious": 0, "suspicious": 10, "outlinks": 15, "reputation": 0, "stale": 10},
-        },
-    },
-    {
-        "target": "example-host-3.com", "scan_time": "2025-01-01T00:00:00Z",
-        "composite_score": 15, "severity": "LOW",
-        "nmap_score": 10, "vt_score": 20,
-        "port_results": [
-            {"portid": "80",  "service": "http",  "state": "open", "risk_tag": "low", "score": 10},
-            {"portid": "443", "service": "https", "state": "open", "risk_tag": "low", "score": 5},
-        ],
-        "findings": ["VT: Last scan 45 days old -- may be stale"],
-        "breakdown": {
-            "nmap": {"port_avg": 7, "uptime": 0, "eol_os": 0},
-            "vt":   {"malicious": 0, "suspicious": 0, "outlinks": 0, "reputation": 0, "stale": 10},
-        },
-    },
-]
+# ─── DATA SOURCE (early, so sidebar filters can use df) ───────────────────────
+is_sample = st.session_state.reports is None
+reports   = st.session_state.reports if not is_sample else SAMPLE_REPORTS
+df        = reports_to_df(reports)
+
+# ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+st.sidebar.image("cyberscan_logo-removebg-preview.png", width=100)
+st.sidebar.title("CyberScan Pro")
+st.sidebar.divider()
+
+st.sidebar.title("Dashboard Mode")
+view_mode = st.sidebar.radio(
+    "Select your expertise level:",
+    ["Naive User", "Technical User"]
+)
+st.sidebar.divider()
+
+# ─── SIDEBAR FILTERS (between Dashboard Mode and Settings) ────────────────────
+st.sidebar.subheader("Filter Results")
+all_targets  = sorted(df["target"].unique().tolist())  if not df.empty else []
+all_services = sorted(df["service"].unique().tolist()) if not df.empty else []
+
+sel_target = st.sidebar.selectbox("Filter by Target",  ["All"] + all_targets)
+sel_svc    = st.sidebar.selectbox("Filter by Service", ["All"] + all_services)
+sel_sev    = st.sidebar.multiselect(
+    "Filter by Severity",
+    ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
+    default=["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+)
+st.sidebar.divider()
+
+st.sidebar.title("⚙️ Settings")
+st.sidebar.caption("Configure your scanner.")
+
+target_input = st.sidebar.text_area("Enter Targets (comma or newline separated)", value="")
+targets = [t.strip() for t in target_input.replace('\n', ',').split(',') if t.strip()]
+
+st.sidebar.divider()
+st.sidebar.subheader("🔑 API Key")
+VT_API_KEY = st.sidebar.text_input("Enter VirusTotal API Key", type="password")
+
+st.sidebar.divider()
+st.sidebar.subheader("✉️ Email Setup")
+recipient_email = st.sidebar.text_input("Alert Recipient Address")
+
+st.sidebar.subheader("Scan Controls")
+scan_button    = st.sidebar.button("Run Full Scan",  use_container_width=True, type="primary")
+refresh_button = st.sidebar.button("Refresh Scan",   use_container_width=True)
+st.sidebar.divider()
+
+# ─── STATUS BLOCK ─────────────────────────────────────────────────────────────
+st.sidebar.subheader("Status")
+
+if not RISK_SCORING_AVAILABLE:
+    st.sidebar.error(f"scanners import failed:\n{_import_err_msg}")
+else:
+    st.sidebar.success("scanners package loaded")
+
+if VT_API_KEY:
+    st.sidebar.success("VT_API_KEY ready")
+else:
+    st.sidebar.error("VT_API_KEY not set in .env")
+
+if sender_email and app_password and recipient_email:
+    st.sidebar.success("Email credentials ready")
+else:
+    st.sidebar.warning("Email secrets missing in .env")
+
+st.sidebar.caption(f"Targets: {', '.join(targets)}")
+st.sidebar.divider()
 
 # ─── RUN SCAN ─────────────────────────────────────────────────────────────────
 if scan_button or refresh_button:
@@ -434,7 +426,6 @@ if scan_button or refresh_button:
             st.session_state.scan_time      = time.strftime("%Y-%m-%d %H:%M:%S")
             st.session_state.last_refreshed = datetime.now().strftime("%d %b %Y  %H:%M:%S")
             status.success(f"Scan complete -- {len(collected)} target(s) processed.")
-            # ── Auto-save to history DB ───────────────────────────────────
             if DB_AVAILABLE:
                 try:
                     _save_df = reports_to_df(collected)
@@ -444,15 +435,10 @@ if scan_button or refresh_button:
         else:
             status.error("No results returned. Check connectivity and credentials.")
 
-# ─── DATA SOURCE ──────────────────────────────────────────────────────────────
-is_sample = st.session_state.reports is None
-reports   = st.session_state.reports if not is_sample else SAMPLE_REPORTS
-df        = reports_to_df(reports)
-
 # ─── HEADER ───────────────────────────────────────────────────────────────────
 col_title, col_ref, col_btn = st.columns([6, 3, 1])
 with col_title:
-    st.image("cyberscan_logo-removebg-preview.png", width = 150)
+    st.image("cyberscan_logo-removebg-preview.png", width=150)
     st.title("CyberScan Pro")
     st.caption("Professional Network Reconnaissance & Threat Intelligence Dashboard")
 with col_ref:
@@ -470,19 +456,6 @@ with col_btn:
         st.rerun()
 
 st.divider()
-st.sidebar.subheader("Filter Results")
-# ─── SIDEBAR FILTERS ──────────────────────────────────────────────────────────
-all_targets  = sorted(df["target"].unique().tolist())  if not df.empty else []
-all_services = sorted(df["service"].unique().tolist()) if not df.empty else []
-
-sel_target = st.sidebar.selectbox("Filter by Target",  ["All"] + all_targets)
-sel_svc    = st.sidebar.selectbox("Filter by Service", ["All"] + all_services)
-sel_sev    = st.sidebar.multiselect(
-    "Filter by Severity",
-    ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
-    default=["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
-)
-
 filt = df.copy()
 if not filt.empty:
     if sel_target != "All": filt = filt[filt["target"]  == sel_target]
