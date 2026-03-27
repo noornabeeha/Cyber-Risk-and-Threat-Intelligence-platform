@@ -202,12 +202,10 @@ The `sample_test_targets.txt` file contains the following intentionally vulnerab
 
 | Name | GitHub |
 |---|---|
-| Name1 | [@userid1](https://github.com/userid1) |
-| Name2 | [@userid2](https://github.com/userid2) |
-| Name3 | [@userid3](https://github.com/userid3) |
-| Name4 | [@userid4](https://github.com/userid4) |
-
-> *Replace the placeholder names and GitHub userids above.*
+| Dhanush Polasi | [@userid1](https://github.com/DhanushP545) |
+| Sujithraa | [@userid2](https://github.com/Suji2007hub) |
+| Akshay Bakale | [@userid3](https://github.com/AkshayBakale/) |
+| Eswar V | [@userid4](https://github.com/eswar0113) |
 
 **Repository:** [https://github.com/noornabeeha/Cyber-Risk-and-Threat-Intelligence-platform](https://github.com/noornabeeha/Cyber-Risk-and-Threat-Intelligence-platform)
 
