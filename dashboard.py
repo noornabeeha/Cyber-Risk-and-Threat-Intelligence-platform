@@ -195,7 +195,6 @@ st.sidebar.title("Compare Scan History")
 hist_button    = st.sidebar.button("Compare",  use_container_width=True, type="primary")
 st.sidebar.divider()
 
-st.sidebar.subheader("Filter Results")
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 for _k in ["reports", "scan_time", "last_refreshed"]:
@@ -476,7 +475,7 @@ with col_btn:
         st.rerun()
 
 st.divider()
-
+st.sidebar.subheader("Filter Results")
 # ─── SIDEBAR FILTERS ──────────────────────────────────────────────────────────
 all_targets  = sorted(df["target"].unique().tolist())  if not df.empty else []
 all_services = sorted(df["service"].unique().tolist()) if not df.empty else []
